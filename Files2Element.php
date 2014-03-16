@@ -16,7 +16,13 @@ if(!isset($_GET['update'])) {
 else {
   $update = $_GET["update"];
 }
-$convertor->updateElements($update);
+if($modx->event->name!="OnCacheUpdate") {
+  $cacheUpdate = TRUE;
+}
+else {
+  $cacheUpdate = FALSE;
+}
+$convertor->updateElements($update, $cacheUpdate);
 
 class files2elements {
   private $elements;
@@ -39,7 +45,7 @@ class files2elements {
     }
   }
 
-  public function updateElements($type) {
+  public function updateElements($type, $cacheUpdate) {
     if($type=="all") {
       foreach( array_keys($this->elements) as $elementType ) {
         $this->updateElements($elementType);
@@ -49,6 +55,11 @@ class files2elements {
       $methodName = "update_" . $type;
       $this->$methodName();
     }
+
+	if($cacheUpdate) {
+	  global $modx;
+	  $modx->cacheManager->refresh();
+	}
   }
 
   private function prepareElement($name, $fileKey, $nameKey, $properties) {
@@ -60,23 +71,24 @@ class files2elements {
     return $properties;
   }
 
-  private function updateElement($class, $key, $fields) {
+  private function updateElement($class, $nameKey, $contentKey, $db_fields) {
     global $modx;
 
     $q = $modx->newQuery($class);
-    $q->where(array($key=>$fields[$key]));
-    
+    $q->where(array($nameKey=>$db_fields[$nameKey]));
+
     $exists = $modx->getCollection($class, $q);
     if($exists) {
       foreach($exists as $object) {
-          $object->fromArray($fields);
-      break;
+        $object->fromArray($db_fields);
+      	break;
       }
     }
     else {
       $object = $modx->newObject($class);
-      $object->fromArray($fields);
+      $object->fromArray($db_fields);
     }
+	$object->setContent($db_fields[$contentKey]);
     $object->save();
 
     return $object;
@@ -94,11 +106,19 @@ class files2elements {
     }
   }
 
+  private function update_templates() {
+    $list = $this->elements['chunks'];
+    foreach($list as $template_name => $properties) {
+      $db_fields = $this->prepareElement($template_name, 'content', 'templatename', $properties);
+      $this->updateElement("modTemplate", "templatename", "content", $db_fields);
+    }
+  }
+
   private function update_chunks() {
     $list = $this->elements['chunks'];
     foreach($list as $chunk_name => $properties) {
       $db_fields = $this->prepareElement($chunk_name, 'snippet', 'name', $properties);
-      $this->updateElement("modChunk", "name", $db_fields);
+      $this->updateElement("modChunk", "name", "snippet", $db_fields);
     }
   }
 
@@ -106,7 +126,7 @@ class files2elements {
     $list = $this->elements['snippets'];
     foreach($list as $snippet_name => $properties) {
       $db_fields = $this->prepareElement($snippet_name, 'snippet', 'name', $properties);
-      $this->updateElement("modSnippet", "name", $db_fields);
+      $this->updateElement("modSnippet", "name", "snippet", $db_fields);
     }
   }
 
@@ -116,7 +136,7 @@ class files2elements {
       $db_fields = $this->prepareElement($plugin_name, 'plugincode', 'name', $properties);
       $plugin_events = $db_fields['events'];
       unset($db_fields['events']);
-      $plugin= $this->updateElement("modPlugin", "name", $db_fields);
+      $plugin= $this->updateElement("modPlugin", "name", "plugincode", $db_fields);
       $this->setPluginEvents($plugin->get('id'), $plugin_events);
     }
   }
