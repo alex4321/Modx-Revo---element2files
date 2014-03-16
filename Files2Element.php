@@ -27,13 +27,13 @@ class files2elements {
 
   public function setDirecories($directories) {
     foreach($directories as $type=>$directory) {
-      $elements_file = $directory . '/elements.php';
-      if( file_exists($elements_file) ) {
+      $elementsFile = $directory . '/elements.php';
+      if( file_exists($elementsFile) ) {
         $elements = array();
-        require_once $elements_file;
-        foreach($elements as $element_name => $properties) {
+        require_once $elementsFile;
+        foreach($elements as $elementName => $properties) {
           $properties['base_path'] = $directory;
-          $this->elements[$type][$element_name] = $properties;
+          $this->elements[$type][$elementName] = $properties;
         }
       }
     }
@@ -41,18 +41,18 @@ class files2elements {
 
   public function updateElements($type) {
     if($type=="all") {
-      foreach( array_keys($this->elements) as $element_type ) {
-        $this->updateElements($element_type);
+      foreach( array_keys($this->elements) as $elementType ) {
+        $this->updateElements($elementType);
       }
     }
     else {
-      $method_name = "update_" . $type;
-      $this->$method_name();
+      $methodName = "update_" . $type;
+      $this->$methodName();
     }
   }
 
-  private function prepareElement($name, $fileKey, $name_key, $properties) {
-    $properties[$name_key] = $name;
+  private function prepareElement($name, $fileKey, $nameKey, $properties) {
+    $properties[$nameKey] = $name;
     if(isset($properties['file'])) {
       $properties[$fileKey] = file_get_contents($properties['base_path'] . '/' . $properties['file']);
       unset($properties['file']);
